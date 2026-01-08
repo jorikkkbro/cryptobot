@@ -1,0 +1,28 @@
+{
+    "name": "auction",
+    "version": "1.0.0",
+    "description": "Telegram Gift Auction Backend",
+    "main": "dist/index.js",
+    "scripts": {
+        "dev": "ts-node src/index.ts",
+        "build": "tsc",
+        "start": "node dist/index.js",
+        "db:up": "docker-compose up -d",
+        "db:down": "docker-compose down",
+        "db:logs": "docker-compose logs -f mongo"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "dotenv": "^17.2.3",
+        "express": "^5.2.1",
+        "mongoose": "^9.1.2"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.6",
+        "@types/node": "^25.0.3",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    }
+}

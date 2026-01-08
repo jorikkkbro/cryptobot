@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>🎁 Gift Auction</title>
+  <style>
+    :root {
+      --bg: #0f0f1a;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --text: #fff;
+      --text2: rgba(255,255,255,0.6);
+      --text3: rgba(255,255,255,0.4);
+      --blue: #3498db;
+      --green: #2ecc71;
+      --orange: #f39c12;
+      --red: #e74c3c;
+      --purple: #9b59b6;
+    }
+    
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg) 0%, #1a1a2e 50%, #16213e 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    /* === HEADER === */
+    header {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+    
+    header h1 {
+      font-size: 2.2em;
+      background: linear-gradient(90deg, var(--orange), var(--red), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 5px;
+    }
+    
+    header p {
+      color: var(--text3);
+      font-size: 0.9em;
+    }
+
+    /* === STATS BAR === */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 15px;
+      max-width: 1200px;
+      margin: 0 auto 25px;
+    }
+    
+    .stat {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .stat .value {
+      font-size: 2.2em;
+      font-weight: 700;
+      color: var(--blue);
+      line-height: 1;
+    }
+    
+    .stat .label {
+      font-size: 0.85em;
+      color: var(--text2);
+      margin-top: 8px;
+    }
+    
+    .stat .hint {
+      font-size: 0.7em;
+      color: var(--text3);
+      margin-top: 4px;
+    }
+    
+    .stat.highlight {
+      background: rgba(46, 204, 113, 0.1);
+      border-color: rgba(46, 204, 113, 0.3);
+    }
+    
+    .stat.highlight .value {
+      color: var(--green);
+      font-size: 2.5em;
+    }
+
+    /* === GRID === */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    /* === PANELS === */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 15px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    
+    .panel-header .icon {
+      font-size: 1.4em;
+    }
+    
+    .panel-header h2 {
+      font-size: 1.1em;
+      font-weight: 600;
+    }
+    
+    .panel-header .badge {
+      margin-left: auto;
+      background: var(--green);
+      color: #000;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75em;
+      font-weight: 600;
+    }
+
+    /* === TIMER === */
+    .timer-panel {
+      background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.1));
+      border-color: rgba(231, 76, 60, 0.3);
+      text-align: center;
+      padding: 30px;
+    }
+    
+    .timer-value {
+      font-size: 4em;
+      font-weight: 700;
+      font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+      color: #fff;
+      text-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
+      letter-spacing: 2px;
+    }
+    
+    .timer-info {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      margin-top: 15px;
+    }
+    
+    .timer-info-item {
+      text-align: center;
+    }
+    
+    .timer-info-item .val {
+      font-size: 1.5em;
+      font-weight: 600;
+      color: var(--orange);
+    }
+    
+    .timer-info-item .lbl {
+      font-size: 0.75em;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+
+    /* === TOP 10 === */
+    .top10-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      background: rgba(255,255,255,0.02);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      transition: all 0.2s;
+    }
+    
+    .top10-item:hover {
+      background: rgba(255,255,255,0.05);
+    }
+    
+    .top10-item.winner {
+      background: linear-gradient(90deg, rgba(46, 204, 113, 0.15), transparent);
+      border-left: 3px solid var(--green);
+    }
+    
+    .top10-item .pos {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 0.9em;
+      margin-right: 12px;
+    }
+    
+    .top10-item .pos.gold { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #000; }
+    .top10-item .pos.silver { background: linear-gradient(135deg, #bdc3c7, #95a5a6); color: #000; }
+    .top10-item .pos.bronze { background: linear-gradient(135deg, #e67e22, #d35400); color: #fff; }
+    
+    .top10-item .user {
+      flex: 1;
+      font-weight: 500;
+    }
+    
+    .top10-item .bid {
+      font-weight: 700;
+      color: var(--orange);
+      font-size: 1.1em;
+    }
+    
+    .top10-empty {
+      text-align: center;
+      padding: 40px;
+      color: var(--text3);
+    }
+
+    /* === FORMS === */
+    .field {
+      margin-bottom: 15px;
+    }
+    
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    
+    .field-label {
+      font-size: 0.9em;
+      font-weight: 500;
+      color: var(--text);
+    }
+    
+    .field-type {
+      font-size: 0.75em;
+      color: var(--purple);
+      font-family: monospace;
+    }
+    
+    .field-hint {
+      font-size: 0.75em;
+      color: var(--text3);
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+    
+    input, select {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      font-size: 0.95em;
+      transition: all 0.2s;
+    }
+    
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--blue);
+      background: rgba(255,255,255,0.08);
+    }
+    
+    input::placeholder {
+      color: var(--text3);
+    }
+    
+    .row {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .row > * {
+      flex: 1;
+    }
+
+    /* === BUTTONS === */
+    button {
+      width: 100%;
+      padding: 12px 20px;
+      border-radius: 8px;
+      border: none;
+      font-size: 0.95em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    button:hover {
+      transform: translateY(-1px);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    .btn-blue { background: linear-gradient(135deg, var(--blue), #2980b9); color: #fff; }
+    .btn-green { background: linear-gradient(135deg, var(--green), #27ae60); color: #fff; }
+    .btn-orange { background: linear-gradient(135deg, var(--orange), #e67e22); color: #fff; }
+    .btn-red { background: linear-gradient(135deg, var(--red), #c0392b); color: #fff; }
+    
+    .btn-blue:hover { box-shadow: 0 5px 20px rgba(52, 152, 219, 0.3); }
+    .btn-green:hover { box-shadow: 0 5px 20px rgba(46, 204, 113, 0.3); }
+    .btn-orange:hover { box-shadow: 0 5px 20px rgba(243, 156, 18, 0.3); }
+    .btn-red:hover { box-shadow: 0 5px 20px rgba(231, 76, 60, 0.3); }
+
+    /* === LOG === */
+    .log {
+      max-height: 180px;
+      overflow-y: auto;
+      font-family: 'SF Mono', Monaco, monospace;
+      font-size: 0.8em;
+    }
+    
+    .log-item {
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      background: rgba(255,255,255,0.02);
+      display: flex;
+      gap: 10px;
+    }
+    
+    .log-item .time {
+      color: var(--text3);
+      flex-shrink: 0;
+    }
+    
+    .log-item .msg {
+      color: var(--text2);
+    }
+    
+    .log-item.success { border-left: 2px solid var(--green); }
+    .log-item.info { border-left: 2px solid var(--blue); }
+    .log-item.warning { border-left: 2px solid var(--orange); }
+    .log-item.error { border-left: 2px solid var(--red); }
+
+    /* === WINNERS === */
+    .winners {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    
+    .winners-empty {
+      text-align: center;
+      padding: 30px;
+      color: var(--text3);
+    }
+    
+    .winners-round {
+      margin-bottom: 15px;
+    }
+    
+    .winners-round-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(155, 89, 182, 0.15);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 0.9em;
+      color: var(--purple);
+    }
+    
+    .winners-round-header .round-num {
+      background: var(--purple);
+      color: #fff;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8em;
+    }
+    
+    .winner-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(46, 204, 113, 0.08);
+      border-left: 3px solid var(--green);
+      border-radius: 6px;
+      margin-bottom: 4px;
+      font-size: 0.9em;
+    }
+    
+    .winner-item .gift-num {
+      background: var(--green);
+      color: #fff;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75em;
+      font-weight: 700;
+      margin-right: 10px;
+    }
+    
+    .winner-item .user {
+      flex: 1;
+      font-weight: 500;
+    }
+    
+    .winner-item .stars {
+      color: var(--orange);
+      font-weight: 600;
+    }
+
+    /* === SCROLLBAR === */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    
+    /* === DIVIDER === */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 15px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <h1>🎁 Gift Auction</h1>
+    <p>Система многораундовых аукционов с real-time обновлениями через SSE</p>
+  </header>
+
+  <!-- STATS BAR -->
+  <div class="stats">
+    <div class="stat">
+      <div class="value" id="sBids">0</div>
+      <div class="label">Всего ставок</div>
+      <div class="hint">Количество активных ставок в текущем раунде</div>
+    </div>
+    <div class="stat">
+      <div class="value" id="sBps">0</div>
+      <div class="label">Ставок/сек</div>
+      <div class="hint">Текущая скорость поступления ставок от ботов</div>
+    </div>
+    <div class="stat highlight">
+      <div class="value" id="sMin">0</div>
+      <div class="label">⭐ Мин. для прохода</div>
+      <div class="hint">Ставка последнего победителя. Поставь больше — пройдёшь!</div>
+    </div>
+    <div class="stat">
+      <div class="value" id="sBots">0</div>
+      <div class="label">Активных ботов</div>
+      <div class="hint">Боты сейчас делают ставки</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="grid">
+    
+    <!-- LEFT COLUMN -->
+    <div class="left">
+      
+      <!-- TIMER -->
+      <div class="panel timer-panel">
+        <div class="timer-value" id="timer">--:--</div>
+        <div class="timer-info">
+          <div class="timer-info-item">
+            <div class="val" id="round">-</div>
+            <div class="lbl">Текущий раунд</div>
+          </div>
+          <div class="timer-info-item">
+            <div class="val" id="rounds">-</div>
+            <div class="lbl">Всего раундов</div>
+          </div>
+          <div class="timer-info-item">
+            <div class="val" id="gifts">-</div>
+            <div class="lbl">Подарков в раунде</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOP 10 -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">🏆</span>
+          <h2>Топ 10 лидеров</h2>
+          <span class="badge" id="winnersLabel">Проходят: 0</span>
+        </div>
+        <div id="top10">
+          <div class="top10-empty">Ставок пока нет. Запустите аукцион!</div>
+        </div>
+      </div>
+
+      <!-- LOG -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">📋</span>
+          <h2>Лог событий</h2>
+        </div>
+        <div class="log" id="log"></div>
+      </div>
+
+      <!-- WINNERS -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">🏅</span>
+          <h2>Победители прошлых раундов</h2>
+          <span class="badge" id="winnersCount">0</span>
+        </div>
+        <div class="winners" id="winners">
+          <div class="winners-empty">Пока нет победителей. Дождитесь конца первого раунда!</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <div class="right">
+
+      <!-- CREATE AUCTION -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">➕</span>
+          <h2>Создать аукцион</h2>
+        </div>
+        
+        <div class="field">
+          <div class="field-header">
+            <span class="field-label">Название аукциона</span>
+            <span class="field-type">string</span>
+          </div>
+          <input id="aName" placeholder="Например: New Year Auction">
+          <div class="field-hint">Отображается в списке и на странице аукциона</div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">Время раунда</span>
+              <span class="field-type">секунды</span>
+            </div>
+            <input id="aTime" type="number" value="60" placeholder="60">
+            <div class="field-hint">Длительность каждого раунда (30-300 сек)</div>
+          </div>
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">Подарков/раунд</span>
+              <span class="field-type">число</span>
+            </div>
+            <input id="aGifts" type="number" value="5" placeholder="5">
+            <div class="field-hint">Сколько победителей в каждом раунде</div>
+          </div>
+        </div>
+
+        <div class="field">
+          <div class="field-header">
+            <span class="field-label">Количество раундов</span>
+            <span class="field-type">число</span>
+          </div>
+          <input id="aRounds" type="number" value="3" placeholder="3">
+          <div class="field-hint">Общее количество раундов. Всего подарков = раунды × подарков/раунд</div>
+        </div>
+
+        <button class="btn-green" onclick="create()">
+          <span>🎯</span> Создать аукцион
+        </button>
+      </div>
+
+      <!-- MANAGE AUCTION -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">🎮</span>
+          <h2>Управление</h2>
+        </div>
+        
+        <div class="field">
+          <div class="field-header">
+            <span class="field-label">Выбор аукциона</span>
+          </div>
+          <select id="aSelect">
+            <option value="">-- Выберите аукцион --</option>
+          </select>
+          <div class="field-hint">🟢 = аукцион уже запущен и идёт</div>
+        </div>
+
+        <button class="btn-blue" onclick="start()">
+          <span>▶</span> Запустить аукцион
+        </button>
+      </div>
+
+      <!-- BOTS -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">🤖</span>
+          <h2>Генератор ботов</h2>
+        </div>
+        
+        <div class="row">
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">Количество</span>
+              <span class="field-type">1-1,000,000</span>
+            </div>
+            <input id="bCount" type="number" value="10000" placeholder="10000">
+          </div>
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">Баланс</span>
+              <span class="field-type">⭐ Stars</span>
+            </div>
+            <input id="bBal" type="number" value="10000" placeholder="10000">
+          </div>
+        </div>
+        <div class="field-hint" style="margin-top: -10px;">
+          Каждый бот = полноценный User в MongoDB с полями: id, username, first_name, last_name, avatar, balance, is_bot, created_at
+        </div>
+
+        <button class="btn-green" onclick="genBots()">
+          <span>🚀</span> Создать ботов
+        </button>
+
+        <div class="divider"></div>
+
+        <div class="field">
+          <div class="field-header">
+            <span class="field-label">Скорость ставок</span>
+            <span class="field-type">ставок/сек</span>
+          </div>
+          <input id="bBps" type="number" value="500" placeholder="500">
+          <div class="field-hint">
+            Боты используют 5 стратегий: агрессивная (30%), средняя (30%), осторожная (25%), перебить минимум (15%), all-in (10%)
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="btn-orange" onclick="startBots()">
+            <span>▶</span> Запустить
+          </button>
+          <button class="btn-red" onclick="stopBots()">
+            <span>⏹</span> Остановить
+          </button>
+        </div>
+      </div>
+
+      <!-- MANUAL BID -->
+      <div class="panel">
+        <div class="panel-header">
+          <span class="icon">💰</span>
+          <h2>Ручная ставка</h2>
+        </div>
+        
+        <div class="row">
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">User ID</span>
+            </div>
+            <input id="mUser" value="user1" placeholder="user1">
+          </div>
+          <div class="field">
+            <div class="field-header">
+              <span class="field-label">Сумма</span>
+              <span class="field-type">⭐</span>
+            </div>
+            <input id="mAmount" type="number" value="100" placeholder="100">
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="btn-blue" onclick="bid()">
+            <span>💎</span> Поставить
+          </button>
+          <button class="btn-orange" onclick="deposit()">
+            <span>➕</span> Пополнить
+          </button>
+        </div>
+        <div class="field-hint">Пополнить = добавить Stars на баланс пользователя. Поставить = сделать ставку в активном аукционе.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let auctionId = null;
+    let sse = null;
+    let gifts = 0;
+
+    const $ = id => document.getElementById(id);
+    
+    const api = (method, url, body) => fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : null
+    }).then(r => r.json());
+
+    function log(msg, type = 'info') {
+      const item = document.createElement('div');
+      item.className = `log-item ${type}`;
+      item.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span><span class="msg">${msg}</span>`;
+      $('log').prepend(item);
+      while ($('log').children.length > 50) $('log').lastChild.remove();
+    }
+
+    async function loadAuctions() {
+      const list = await api('GET', '/api/auctions');
+      $('aSelect').innerHTML = '<option value="">-- Выберите аукцион --</option>' + 
+        list.map(a => `<option value="${a.id}">${a.name} ${a.isRunning ? '🟢' : '⚪'}</option>`).join('');
+      
+      const active = list.find(a => a.isRunning);
+      if (active && !auctionId) {
+        auctionId = active.id;
+        $('aSelect').value = active.id;
+        connect();
+      }
+    }
+
+    async function create() {
+      const name = $('aName').value || 'Auction ' + Date.now();
+      const time = +$('aTime').value || 60;
+      const giftsPerRound = +$('aGifts').value || 5;
+      const rounds = +$('aRounds').value || 3;
+
+      const plan = Array.from({ length: rounds }, (_, i) => ({
+        round_number: i + 1,
+        count_of_gifts: giftsPerRound,
+        time: time
+      }));
+
+      const r = await api('POST', '/api/auction', {
+        name,
+        gift: { id: 'gift_star', name: 'Golden Star' },
+        plan
+      });
+
+      log(`Создан аукцион: ${name} (${rounds} раундов × ${giftsPerRound} подарков)`, 'success');
+      loadAuctions();
+    }
+
+    async function start() {
+      const id = $('aSelect').value;
+      if (!id) return alert('Сначала выберите аукцион из списка');
+      
+      await api('POST', `/api/auction/${id}/start`);
+      auctionId = id;
+      log('Аукцион запущен!', 'success');
+      connect();
+    }
+
+    function connect() {
+      if (sse) sse.close();
+      
+      sse = new EventSource(`/api/sse/${auctionId}`);
+      
+      sse.addEventListener('state', e => {
+        const s = JSON.parse(e.data);
+        gifts = s.gifts;
+        
+        // Stats
+        $('sBids').textContent = s.bids.toLocaleString();
+        $('sBps').textContent = s.bots.bps.toLocaleString();
+        $('sMin').textContent = s.minBid.toLocaleString();
+        $('sBots').textContent = s.bots.active.toLocaleString();
+        
+        // Timer
+        const sec = Math.floor(s.time / 1000);
+        const mm = Math.floor(sec / 60).toString().padStart(2, '0');
+        const ss = (sec % 60).toString().padStart(2, '0');
+        $('timer').textContent = `${mm}:${ss}`;
+        
+        // Round info
+        $('round').textContent = s.round;
+        $('rounds').textContent = s.totalRounds;
+        $('gifts').textContent = s.gifts;
+        $('winnersLabel').textContent = `Проходят: ${s.gifts}`;
+        
+        // Top 10
+        if (s.top10.length === 0) {
+          $('top10').innerHTML = '<div class="top10-empty">Ставок пока нет</div>';
+        } else {
+          $('top10').innerHTML = s.top10.map((t, i) => {
+            const isWinner = i < s.gifts;
+            let posClass = '';
+            if (i === 0) posClass = 'gold';
+            else if (i === 1) posClass = 'silver';
+            else if (i === 2) posClass = 'bronze';
+            
+            return `
+              <div class="top10-item ${isWinner ? 'winner' : ''}">
+                <div class="pos ${posClass}">${t.position}</div>
+                <div class="user">${t.userId}</div>
+                <div class="bid">${t.amount.toLocaleString()} ⭐</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Winners (прошлые раунды)
+        $('winnersCount').textContent = s.winners.length;
+        
+        if (s.winners.length === 0) {
+          $('winners').innerHTML = '<div class="winners-empty">Пока нет победителей. Дождитесь конца первого раунда!</div>';
+        } else {
+          // Группируем по раундам
+          const giftsPerRound = s.gifts;
+          const rounds = {};
+          
+          s.winners.forEach(w => {
+            const roundNum = Math.ceil(w.gift_number / giftsPerRound);
+            if (!rounds[roundNum]) rounds[roundNum] = [];
+            rounds[roundNum].push(w);
+          });
+          
+          // Сортируем раунды в обратном порядке (новые сверху)
+          const roundNums = Object.keys(rounds).sort((a, b) => b - a);
+          
+          $('winners').innerHTML = roundNums.map(roundNum => `
+            <div class="winners-round">
+              <div class="winners-round-header">
+                <span class="round-num">${roundNum}</span>
+                <span>Раунд ${roundNum}</span>
+                <span style="margin-left: auto; opacity: 0.6; font-weight: 400;">${rounds[roundNum].length} подарков</span>
+              </div>
+              ${rounds[roundNum].map(w => `
+                <div class="winner-item">
+                  <div class="gift-num">#${w.gift_number}</div>
+                  <div class="user">${w.user_id}</div>
+                  <div class="stars">${w.stars.toLocaleString()} ⭐</div>
+                </div>
+              `).join('')}
+            </div>
+          `).join('');
+        }
+      });
+
+      sse.addEventListener('ended', () => {
+        log('Аукцион завершён!', 'warning');
+        auctionId = null;
+        loadAuctions();
+      });
+
+      sse.onerror = () => {
+        log('SSE соединение потеряно', 'error');
+      };
+    }
+
+    async function genBots() {
+      const count = +$('bCount').value || 10000;
+      const balance = +$('bBal').value || 10000;
+      
+      log(`Генерация ${count.toLocaleString()} ботов...`, 'info');
+      
+      const r = await api('POST', '/api/bots/generate', { count, balance });
+      
+      log(`Создано ${r.created.toLocaleString()} ботов за ${r.time}ms`, 'success');
+    }
+
+    async function startBots() {
+      if (!auctionId) return alert('Сначала запустите аукцион');
+      
+      const bps = +$('bBps').value || 500;
+      await api('POST', '/api/bots/start', { auctionId, bidsPerSecond: bps });
+      log(`Боты запущены: ${bps} ставок/сек`, 'success');
+    }
+
+    async function stopBots() {
+      await api('POST', '/api/bots/stop');
+      log('Боты остановлены', 'warning');
+    }
+
+    async function bid() {
+      if (!auctionId) return alert('Нет активного аукциона');
+      
+      const userId = $('mUser').value;
+      const amount = +$('mAmount').value;
+      
+      const r = await api('POST', `/api/auction/${auctionId}/bid`, { userId, amount });
+      
+      if (r.ok) {
+        log(`Ставка ${userId}: ${r.bid.toLocaleString()} ⭐`, 'success');
+      } else {
+        log(`Ошибка: ${r.error}`, 'error');
+      }
+    }
+
+    async function deposit() {
+      const userId = $('mUser').value;
+      const amount = +$('mAmount').value;
+      
+      const r = await api('POST', `/api/balance/${userId}/deposit`, { amount });
+      log(`Пополнен баланс ${userId}: ${r.balance.toLocaleString()} ⭐`, 'success');
+    }
+
+    // Init
+    loadAuctions();
+    setInterval(loadAuctions, 10000);
+    log('Dashboard загружен', 'info');
+  </script>
+</body>
+</html>
