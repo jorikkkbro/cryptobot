@@ -62,7 +62,7 @@ export class Auction {
   
   private currentRound: number = 0
   private bids: Map<string, Bid> = new Map()
-  private sortedCache: Bid[] | null = null
+  private sortedBids: Bid[] = []  // Всегда отсортирован!
   
   private roundEndTime: number = 0
   private roundTimer: NodeJS.Timeout | null = null
@@ -131,8 +131,8 @@ export class Auction {
     // Чистим только если это первый раунд
     if (this.currentRound === 0) {
       this.bids.clear()
+      this.sortedBids = []
     }
-    this.sortedCache = null
 
     // 3. Устанавливаем таймер раунда
     const roundDuration = this.plan[this.currentRound].time * 1000
@@ -198,18 +198,20 @@ export class Auction {
     const remaining = this.roundEndTime - Date.now()
     const isLastSeconds = remaining > 0 && remaining < this.ANTI_SNIPE_WINDOW * 1000
     
-    // Получаем текущий минимум для прохода
+    // Получаем текущий минимум для прохода - O(1) из sortedBids!
     const roundPlan = this.plan[this.currentRound]
     const winnersCount = roundPlan?.count_of_gifts ?? 0
-    const sorted = this.getSortedBids()
-    const currentMinWinning = sorted.length >= winnersCount 
-      ? sorted[winnersCount - 1]?.amount ?? 0 
-      : 0
+    let currentMinWinning = 0
+    
+    if (isLastSeconds && winnersCount > 0 && this.sortedBids.length >= winnersCount) {
+      currentMinWinning = this.sortedBids[winnersCount - 1].amount
+    }
 
-    // Всё синхронно — race condition невозможен
+    // Применяем ставку
     balanceManager.remove(userId, needed)
-    this.bids.set(userId, { userId, amount, timestamp: Date.now() })
-    this.sortedCache = null
+    const bid: Bid = { userId, amount, timestamp: Date.now() }
+    this.bids.set(userId, bid)
+    this.updateSortedBids(bid)  // O(n) вставка в отсортированный массив
 
     // Anti-snipe: если в последние 5 сек и ставка выталкивает кого-то из топа
     if (isLastSeconds && amount > currentMinWinning && currentMinWinning > 0) {
@@ -233,10 +235,8 @@ export class Auction {
     const roundPlan = this.plan[this.currentRound]
     const winnersCount = roundPlan.count_of_gifts
 
-    // 1. Сортируем ставки
-    const sorted = this.getSortedBids()
-    const winners = sorted.slice(0, winnersCount)
-    // losers остаются в bids — их ставки переносятся!
+    // 1. Берём топ из отсортированного массива - O(1)!
+    const winners = this.sortedBids.slice(0, winnersCount)
 
     // 2. Определяем gift_number для победителей
     const giftNumberOffset = this.getGiftsAwarded()
@@ -246,12 +246,12 @@ export class Auction {
       gift_number: giftNumberOffset + i + 1
     }))
 
-    // 3. Удаляем ТОЛЬКО победителей из списка ставок
-    // Проигравшие остаются — их ставки переносятся в следующий раунд!
+    // 3. Удаляем победителей из обеих структур
     for (const winner of winners) {
       this.bids.delete(winner.userId)
     }
-    this.sortedCache = null
+    // Удаляем из sortedBids
+    this.sortedBids.splice(0, winnersCount)
 
     // 4. Сохраняем в БД
     await this.commitRound(winnersData)
@@ -327,29 +327,54 @@ export class Auction {
   }
 
   // ═══════════════════════════════════════════
-  // HELPERS
+  // SORTED BIDS (поддерживаем отсортированным!)
   // ═══════════════════════════════════════════
 
-  private getSortedBids(): Bid[] {
-    if (!this.sortedCache) {
-      this.sortedCache = [...this.bids.values()].sort((a, b) => {
-        // По убыванию суммы
-        if (b.amount !== a.amount) return b.amount - a.amount
-        // При равенстве — кто раньше поставил
-        return a.timestamp - b.timestamp
-      })
+  // Вставка/обновление в отсортированный массив
+  private updateSortedBids(bid: Bid): void {
+    // Удаляем старую позицию если есть
+    const oldIndex = this.sortedBids.findIndex(b => b.userId === bid.userId)
+    if (oldIndex !== -1) {
+      this.sortedBids.splice(oldIndex, 1)
     }
-    return this.sortedCache
+
+    // Binary search для новой позиции
+    let left = 0
+    let right = this.sortedBids.length
+
+    while (left < right) {
+      const mid = (left + right) >> 1
+      const cmp = this.sortedBids[mid].amount - bid.amount
+      
+      if (cmp > 0 || (cmp === 0 && this.sortedBids[mid].timestamp < bid.timestamp)) {
+        left = mid + 1
+      } else {
+        right = mid
+      }
+    }
+
+    // Вставляем в правильную позицию
+    this.sortedBids.splice(left, 0, bid)
   }
 
-  // Публичный метод для API
+  // Публичные методы - теперь O(1)!
   getLeaderboard(limit: number = 50): { userId: string, amount: number, position: number }[] {
-    const sorted = this.getSortedBids()
-    return sorted.slice(0, limit).map((bid, i) => ({
+    return this.sortedBids.slice(0, limit).map((bid, i) => ({
       userId: bid.userId,
       amount: bid.amount,
       position: i + 1
     }))
+  }
+
+  getMinWinningBid(): number {
+    const roundPlan = this.plan[this.currentRound]
+    if (!roundPlan) return 0
+
+    if (this.sortedBids.length < roundPlan.count_of_gifts) {
+      return 1
+    }
+
+    return this.sortedBids[roundPlan.count_of_gifts - 1].amount + 1
   }
 
   getUserBid(userId: string): number {
@@ -358,20 +383,6 @@ export class Auction {
 
   getBidsCount(): number {
     return this.bids.size
-  }
-
-  // Минимальная ставка чтобы попасть в победители текущего раунда
-  getMinWinningBid(): number {
-    const roundPlan = this.plan[this.currentRound]
-    if (!roundPlan) return 0
-
-    const sorted = this.getSortedBids()
-    if (sorted.length < roundPlan.count_of_gifts) {
-      return 1  // любая ставка выиграет
-    }
-
-    // Ставка последнего победителя + 1
-    return sorted[roundPlan.count_of_gifts - 1].amount + 1
   }
 }
 

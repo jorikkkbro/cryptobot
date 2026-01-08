@@ -153,7 +153,7 @@ app.get('/api/sse/:auctionId', async (req, res) => {
         success: bots.successRate
       }
     })}\n\n`)
-  }, 200)
+  }, 500)  // было 200ms, теперь 500ms
 
   req.on('close', () => clearInterval(interval))
 })

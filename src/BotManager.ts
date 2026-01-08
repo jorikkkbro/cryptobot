@@ -57,6 +57,7 @@ class BotManager {
   private statsInterval: NodeJS.Timeout | null = null
   private successfulBids: number = 0
   private failedBids: number = 0
+  private skippedNoBalance: number = 0
 
   // ═══════════════════════════════════════════
   // ГЕНЕРАЦИЯ БОТОВ (полноценные юзеры в БД)
@@ -181,14 +182,15 @@ class BotManager {
     this.totalBidsPlaced = 0
     this.successfulBids = 0
     this.failedBids = 0
+    this.skippedNoBalance = 0
 
     // Расчёт: сколько ставок за тик
-    // 20 тиков в секунду, интервал 50ms
-    const TICK_INTERVAL = 50
-    const TICKS_PER_SECOND = 1000 / TICK_INTERVAL
+    // 100 тиков в секунду, интервал 10ms, меньше ставок за тик
+    const TICK_INTERVAL = 10
+    const TICKS_PER_SECOND = 1000 / TICK_INTERVAL  // 100
     const BIDS_PER_TICK = Math.max(1, Math.ceil(bidsPerSecond / TICKS_PER_SECOND))
 
-    console.log(`[BotManager] Starting ${this.botIds.length} bots: target ${bidsPerSecond} bids/sec (${BIDS_PER_TICK} per tick)`)
+    console.log(`[BotManager] Starting ${this.botIds.length} bots: target ${bidsPerSecond} bids/sec (${BIDS_PER_TICK} per tick, ${TICK_INTERVAL}ms interval)`)
 
     // Основной цикл ставок
     this.bidInterval = setInterval(() => {
@@ -212,8 +214,11 @@ class BotManager {
       this.lastSecondBids = this.bidsThisSecond
       this.bidsThisSecond = 0
       
-      if (this.lastSecondBids > 0) {
-        console.log(`[BotManager] Stats: ${this.lastSecondBids} bids/sec, total: ${this.totalBidsPlaced}, success rate: ${Math.round(this.successfulBids / this.totalBidsPlaced * 100)}%`)
+      if (this.lastSecondBids > 0 || this.skippedNoBalance > 0) {
+        const skipRate = this.totalBidsPlaced > 0 
+          ? Math.round(this.skippedNoBalance / (this.skippedNoBalance + this.totalBidsPlaced) * 100) 
+          : 0
+        console.log(`[BotManager] Stats: ${this.lastSecondBids} bids/sec, total: ${this.totalBidsPlaced}, skipped(no $): ${this.skippedNoBalance} (${skipRate}%)`)
       }
     }, 1000)
 
@@ -221,94 +226,48 @@ class BotManager {
   }
 
   // ═══════════════════════════════════════════
-  // СЛУЧАЙНАЯ СТАВКА (агрессивная и рандомная)
+  // СЛУЧАЙНАЯ СТАВКА (в пределах баланса)
   // ═══════════════════════════════════════════
 
   private placeRandomBid(auction: Auction): void {
-    // Выбираем случайного бота
     const botId = this.botIds[Math.floor(Math.random() * this.botIds.length)]
     
     const currentBid = auction.getUserBid(botId)
-    const minWinning = auction.getMinWinningBid()
-    let balance = balanceManager.get(botId)
+    const balance = balanceManager.get(botId)
+    const totalBudget = currentBid + balance
     
-    // Если баланс кончился — пополняем (боты имеют "бесконечные" деньги для тестов)
-    if (balance < 10000) {
-      balanceManager.add(botId, 100000)
-      balance = balanceManager.get(botId)
-    }
-    
-    const totalBalance = currentBid + balance // Общий бюджет бота
-    
-    if (totalBalance <= 0) {
-      this.failedBids++
+    // Нет свободного баланса для повышения
+    if (balance <= 0) {
+      this.skippedNoBalance++
       return
     }
 
     let bidAmount: number
     
-    // Выбираем стратегию случайно
-    const strategy = Math.random()
-    
     if (currentBid === 0) {
-      // НОВАЯ СТАВКА - разные стратегии входа
-      
-      if (strategy < 0.3) {
-        // 30%: Агрессивный вход - сразу большая ставка
-        bidAmount = Math.floor(totalBalance * (0.3 + Math.random() * 0.5))
-      } else if (strategy < 0.6) {
-        // 30%: Средний вход - около minWinning + рандом
-        const base = Math.max(1, minWinning)
-        bidAmount = base + Math.floor(Math.random() * base * 0.5)
-      } else if (strategy < 0.85) {
-        // 25%: Осторожный вход - чуть выше минимума
-        bidAmount = Math.max(1, minWinning) + Math.floor(Math.random() * 10)
-      } else {
-        // 15%: Рандомная ставка в пределах баланса
-        bidAmount = Math.floor(Math.random() * totalBalance * 0.8) + 1
-      }
+      // НОВАЯ СТАВКА - случайная 100-2000
+      bidAmount = Math.floor(Math.random() * 1900) + 100
     } else {
-      // ПОВЫШЕНИЕ СТАВКИ - разные стратегии
-      
-      if (strategy < 0.25) {
-        // 25%: Агрессивное повышение +20-50%
-        const increase = Math.floor(currentBid * (0.2 + Math.random() * 0.3))
-        bidAmount = currentBid + Math.max(1, increase)
-      } else if (strategy < 0.5) {
-        // 25%: Среднее повышение +10-20%
-        const increase = Math.floor(currentBid * (0.1 + Math.random() * 0.1))
-        bidAmount = currentBid + Math.max(1, increase)
-      } else if (strategy < 0.75) {
-        // 25%: Минимальное повышение +1-10%
-        const increase = Math.floor(currentBid * (0.01 + Math.random() * 0.09))
-        bidAmount = currentBid + Math.max(1, increase)
-      } else if (strategy < 0.9) {
-        // 15%: Перебить minWinning
-        bidAmount = Math.max(currentBid + 1, minWinning + Math.floor(Math.random() * 20))
-      } else {
-        // 10%: All-in (поставить всё что есть)
-        bidAmount = totalBalance
-      }
+      // ПОВЫШЕНИЕ - +100-500
+      bidAmount = currentBid + Math.floor(Math.random() * 400) + 100
     }
 
-    // Ограничиваем балансом
-    if (bidAmount > totalBalance) {
-      bidAmount = totalBalance
+    // Ограничиваем бюджетом
+    if (bidAmount > totalBudget) {
+      bidAmount = totalBudget
     }
     
-    // Проверяем что ставка выше текущей
+    // Не можем повысить
     if (bidAmount <= currentBid) {
-      bidAmount = currentBid + 1
+      this.skippedNoBalance++
+      return
     }
-
-    // Проверяем хватает ли на повышение
-    const needed = bidAmount - currentBid
-    if (needed > balance) {
-      this.failedBids++
+    
+    if (bidAmount - currentBid > balance) {
+      this.skippedNoBalance++
       return
     }
 
-    // Делаем ставку
     const result = auction.placeBid(botId, bidAmount)
     
     this.totalBidsPlaced++
